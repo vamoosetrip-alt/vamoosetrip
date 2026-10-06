@@ -110,11 +110,11 @@ export default async function TripPage({
                 <div>
                   <strong>Your estimate: about {eur(myResult.cost)}</strong>
                   <div className="muted">
-                    Flight from {myHome.name} plus {trip.nights} nights. Check live prices before booking.
+                    Flight from {myHome.name} plus {trip.nights} nights. The flight search opens with mid-month dates filled in. Change them to yours.
                   </div>
                 </div>
                 <div className="actions">
-                  <a className="btn" href={flightsLink(myHome.name, decided.city, trip.month)} target="_blank" rel="noopener noreferrer sponsored">
+                  <a className="btn" href={flightsLink(myHome, decided.city, trip.month, trip.nights)} target="_blank" rel="noopener noreferrer sponsored">
                     Find flights
                   </a>
                   <a className="btn ghost-link" href={hotelsLink(decided.city)} target="_blank" rel="noopener noreferrer sponsored">
