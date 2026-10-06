@@ -43,11 +43,15 @@ export default async function TripPage({
     budget: m.budget,
     vibes: m.vibes,
   }));
-  const ranked = rankDestinations(prefs, { month: trip.month, nights: trip.nights }).slice(0, 6);
+  const allRanked = rankDestinations(prefs, { month: trip.month, nights: trip.nights });
 
   const tally = new Map<string, number>();
   votes.forEach((v) => tally.set(v.city_slug, (tally.get(v.city_slug) ?? 0) + 1));
   const myVotes = new Set(votes.filter((v) => v.member_id === me?.id).map((v) => v.city_slug));
+
+  // Show the current top 6, plus any destination that already has votes. Otherwise a vote cast
+  // earlier (when the group was smaller) could vanish from the list as the ranking shifts.
+  const ranked = allRanked.filter((r, i) => i < 6 || (tally.get(r.city.slug) ?? 0) > 0);
   const leading = [...tally.entries()].sort((a, b) => b[1] - a[1])[0];
   const joinAction = joinTripAction.bind(null, trip.code);
 
