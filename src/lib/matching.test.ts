@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { rankDestinations, estimateFlight } from "./matching";
+import { rankDestinations, estimateFlight, distanceKm } from "./matching";
 import { CITY_BY_SLUG } from "./cities";
 
 test("beach-loving group in summer on a modest budget gets a beach city", () => {
@@ -50,4 +50,15 @@ test("flight estimate is zero for the same city and grows with distance", () => 
 
 test("empty group returns no results", () => {
   assert.deepEqual(rankDestinations([], { month: 5, nights: 3 }), []);
+});
+
+test("flights cost more in peak summer than in winter, and island routes cost more than hub routes", () => {
+  const ist = CITY_BY_SLUG["istanbul"];
+  const rome = CITY_BY_SLUG["rome"];
+  assert.ok(estimateFlight(ist, rome, 7) > estimateFlight(ist, rome, 2));
+  const ath = CITY_BY_SLUG["athens"];
+  const santorini = CITY_BY_SLUG["santorini"];
+  const base = estimateFlight(ist, ath, 5);
+  assert.ok(base > 0);
+  assert.ok(estimateFlight(ist, santorini, 5) / distanceKm(ist, santorini) > base / distanceKm(ist, ath));
 });
