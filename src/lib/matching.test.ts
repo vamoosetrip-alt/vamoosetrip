@@ -62,3 +62,41 @@ test("flights cost more in peak summer than in winter, and island routes cost mo
   assert.ok(base > 0);
   assert.ok(estimateFlight(ist, santorini, 5) / distanceKm(ist, santorini) > base / distanceKm(ist, ath));
 });
+
+import { CITIES, REGIONS } from "./cities";
+import { AIRPORTS } from "./airports";
+import { resolvePlace } from "./places";
+
+test("destination data is consistent", () => {
+  const slugs = new Set<string>();
+  for (const c of CITIES) {
+    assert.ok(!slugs.has(c.slug), `duplicate slug ${c.slug}`);
+    slugs.add(c.slug);
+    assert.ok(REGIONS.includes(c.region), `${c.slug} has an unknown region`);
+    assert.ok(c.bestMonths.length > 0 && c.bestMonths.every((m) => m >= 1 && m <= 12), `${c.slug} months`);
+    assert.ok(Object.values(c.vibes).every((n) => n >= 0 && n <= 5), `${c.slug} vibes`);
+    assert.ok(c.daily > 0 && Math.abs(c.lat) <= 90 && Math.abs(c.lon) <= 180, `${c.slug} numbers`);
+  }
+  assert.ok(CITIES.length >= 120);
+  for (const r of REGIONS) assert.ok(CITIES.some((c) => c.region === r), `no destinations in ${r}`);
+});
+
+test("home airports resolve, and older city slugs still work", () => {
+  const codes = new Set(AIRPORTS.map((a) => a.iata));
+  assert.equal(codes.size, AIRPORTS.length);
+  assert.equal(resolvePlace("adb")?.name, "Izmir");
+  assert.ok(resolvePlace("izmir"));
+  assert.equal(resolvePlace("nope"), undefined);
+});
+
+test("a group from Izmir and Istanbul can be matched, with far-east options available", () => {
+  const ranked = rankDestinations(
+    [
+      { name: "A", homeSlug: "adb", budget: 2500, vibes: ["beach", "adventure"] },
+      { name: "B", homeSlug: "ist", budget: 2500, vibes: ["beach", "nature"] },
+    ],
+    { month: 1, nights: 8 },
+  );
+  assert.ok(ranked.length >= 120);
+  assert.ok(ranked.slice(0, 10).some((r) => r.city.region === "Asia"), "expected an Asian beach option in January");
+});

@@ -1,8 +1,9 @@
-import { CITIES, CITY_BY_SLUG, VIBES, type City, type VibeKey } from "./cities";
+import { CITIES, VIBES, type City, type VibeKey } from "./cities";
+import { resolvePlace, type Place } from "./places";
 
 export type MemberPrefs = {
   name: string;
-  homeSlug: string; // a slug from the city list, used as the home airport proxy
+  homeSlug: string; // a home airport code (or, for older trips, a city slug)
   budget: number; // EUR per person for the whole trip, flights included
   vibes: VibeKey[];
 };
@@ -29,7 +30,7 @@ export type Ranked = {
 
 const R = 6371;
 
-export function distanceKm(a: City, b: City): number {
+export function distanceKm(a: Place, b: Place): number {
   const rad = (d: number) => (d * Math.PI) / 180;
   const dLat = rad(b.lat - a.lat);
   const dLon = rad(b.lon - a.lon);
@@ -43,12 +44,17 @@ export function distanceKm(a: City, b: City): number {
 const HUBS = new Set([
   "london", "paris", "amsterdam", "frankfurt", "madrid", "barcelona", "rome", "istanbul",
   "new-york", "los-angeles", "atlanta", "toronto", "dubai", "tokyo", "berlin", "vienna",
+  "singapore", "hong-kong", "seoul", "doha", "chicago", "munich", "zurich", "brussels",
+  "dublin", "sydney", "shanghai", "beijing", "kuala-lumpur", "delhi", "bangkok",
 ]);
 // Seasonal destinations and islands: fewer direct flights, higher fares than distance suggests.
 const THIN_ROUTES = new Set([
   "santorini", "mallorca", "amalfi", "dubrovnik", "split", "cappadocia", "bali",
-  "honolulu", "reykjavik", "cancun", "nice",
+  "honolulu", "reykjavik", "cancun", "nice", "ibiza", "crete", "corfu", "malta", "tenerife",
+  "madeira", "maldives", "seychelles", "mauritius", "zanzibar", "fiji", "tahiti", "queenstown",
+  "koh-samui", "victoria-falls", "cusco", "banff", "bodrum", "punta-cana", "cairns",
 ]);
+const isHub = (p: Place) => p.hub === true || HUBS.has(p.slug);
 
 /** Demand multiplier on the fare for the month of travel. Peak summer and the holidays cost more. */
 export function seasonalFareFactor(month: number): number {
@@ -60,17 +66,17 @@ export function seasonalFareFactor(month: number): number {
  * Rough round-trip economy fare in EUR. A heuristic, not a live price: distance sets the base,
  * then the month of travel and how well connected the route is adjust it.
  */
-export function estimateFlight(from: City, to: City, month = 6): number {
+export function estimateFlight(from: Place, to: Place, month = 6): number {
   const d = distanceKm(from, to);
   if (d < 80) return 0;
   const shortHaul = Math.min(d, 2500);
   const longHaul = Math.max(0, d - 2500);
   const fare = 50 + shortHaul * 0.11 + longHaul * 0.06;
   // Route connectivity: hub-to-hub is cheaper, thin routes (islands, seasonal) cost more.
-  const hubs = (HUBS.has(from.slug) ? 1 : 0) + (HUBS.has(to.slug) ? 1 : 0);
+  const hubs = (isHub(from) ? 1 : 0) + (isHub(to) ? 1 : 0);
   let tier = 1 - 0.06 * hubs;
   if (THIN_ROUTES.has(to.slug)) tier += 0.15;
-  if (!HUBS.has(from.slug) && !HUBS.has(to.slug)) tier += 0.05; // likely a connection
+  if (hubs === 0) tier += 0.05; // likely a connection
   return Math.round(fare * tier * seasonalFareFactor(month));
 }
 
@@ -103,7 +109,7 @@ export function rankDestinations(
 
   const ranked = CITIES.map((city): Ranked => {
     const results: MemberResult[] = members.map((m) => {
-      const home = CITY_BY_SLUG[m.homeSlug];
+      const home = resolvePlace(m.homeSlug);
       const flight = home ? estimateFlight(home, city, trip.month) : 150;
       const cost = Math.round(flight + city.daily * trip.nights);
       const satisfaction =

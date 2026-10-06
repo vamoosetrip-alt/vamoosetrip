@@ -1,4 +1,5 @@
 import type { City } from "./cities";
+import type { Place } from "./places";
 
 // All outbound "next step" links live here. When you join affiliate programs, add your
 // tracking IDs in this one file (or as environment variables) and every button picks them up.
@@ -28,9 +29,9 @@ export function tripDates(month: number, nights: number, today = new Date()): { 
   return { depart: iso(depart), back: iso(back) };
 }
 
-export function flightsLink(from: City, to: City, month: number, nights: number): string {
-  const a = IATA[from.slug] ?? from.name;
-  const b = IATA[to.slug] ?? to.name;
+export function flightsLink(from: Place, to: City, month: number, nights: number): string {
+  const a = from.iata ?? IATA[from.slug] ?? from.name;
+  const b = to.iata ?? IATA[to.slug] ?? to.name;
   const { depart, back } = tripDates(month, nights);
   const q = `Flights from ${a} to ${b} on ${depart} through ${back}`;
   return `https://www.google.com/travel/flights?q=${encodeURIComponent(q)}`;

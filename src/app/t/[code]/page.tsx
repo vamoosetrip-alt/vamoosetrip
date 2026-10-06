@@ -1,6 +1,7 @@
 import { notFound } from "next/navigation";
 import { cookies } from "next/headers";
-import { CITIES, MONTHS, VIBES } from "@/lib/cities";
+import { CITIES, MONTHS, REGIONS, VIBES } from "@/lib/cities";
+import { HOME_OPTIONS, resolvePlace } from "@/lib/places";
 import {
   MAX_VOTES,
   getMemberByToken,
@@ -12,21 +13,23 @@ import { rankDestinations, type MemberPrefs } from "@/lib/matching";
 import { decideAction, joinTripAction, reopenAction, voteAction } from "@/app/actions";
 import { flightsLink, hotelsLink, toursLink } from "@/lib/links";
 import CopyLink from "./CopyLink";
+import HomePicker from "./HomePicker";
 
 export const dynamic = "force-dynamic";
 
 const eur = (n: number) => `€${n.toLocaleString("en-US")}`;
-const homeOptions = [...CITIES].sort((a, b) => a.name.localeCompare(b.name));
 
 export default async function TripPage({
   params,
   searchParams,
 }: {
   params: Promise<{ code: string }>;
-  searchParams: Promise<{ error?: string }>;
+  searchParams: Promise<{ error?: string; region?: string; more?: string }>;
 }) {
   const { code } = await params;
-  const { error } = await searchParams;
+  const { error, region: regionParam, more } = await searchParams;
+  const region = REGIONS.find((r) => r === regionParam);
+  const showCount = more ? 15 : 6;
 
   const trip = await getTrip(code);
   if (!trip) notFound();
@@ -52,14 +55,26 @@ export default async function TripPage({
 
   // Show the current top 6, plus any destination that already has votes. Otherwise a vote cast
   // earlier (when the group was smaller) could vanish from the list as the ranking shifts.
-  const ranked = allRanked.filter((r, i) => i < 6 || (tally.get(r.city.slug) ?? 0) > 0);
+  const inRegion = region ? allRanked.filter((r) => r.city.region === region) : allRanked;
+  const ranked = [
+    ...inRegion.slice(0, showCount),
+    ...allRanked.filter((r) => (tally.get(r.city.slug) ?? 0) > 0 && !inRegion.slice(0, showCount).includes(r)),
+  ];
+  const hasMore = inRegion.length > showCount;
+  const filterHref = (r?: string, m?: boolean) => {
+    const q = new URLSearchParams();
+    if (r) q.set("region", r);
+    if (m) q.set("more", "1");
+    const qs = q.toString();
+    return `/t/${trip.code}${qs ? `?${qs}` : ""}`;
+  };
   const leading = [...tally.entries()].sort((a, b) => b[1] - a[1])[0];
   const joinAction = joinTripAction.bind(null, trip.code);
   const isOrganizer = (await cookies()).get(`o_${trip.code}`)?.value === trip.organizer_token;
   const decided = trip.decided_city ? allRanked.find((r) => r.city.slug === trip.decided_city) : undefined;
   const myIndex = me ? members.findIndex((m) => m.id === me.id) : -1;
   const myResult = decided && myIndex >= 0 ? decided.members[myIndex] : undefined;
-  const myHome = me ? CITIES.find((c) => c.slug === me.home_slug) : undefined;
+  const myHome = me ? resolvePlace(me.home_slug) : undefined;
   const approvals = decided ? (tally.get(decided.city.slug) ?? 0) : 0;
 
   return (
@@ -149,13 +164,8 @@ export default async function TripPage({
           </label>
           <div className="row">
             <label>
-              Home airport city
-              <select name="home" required defaultValue="">
-                <option value="" disabled>Choose a city</option>
-                {homeOptions.map((c) => (
-                  <option key={c.slug} value={c.slug}>{c.name}, {c.country}</option>
-                ))}
-              </select>
+              Where are you flying from?
+              <HomePicker options={HOME_OPTIONS} />
             </label>
             <label>
               Budget per person (EUR)
@@ -199,6 +209,13 @@ export default async function TripPage({
             {leading && ` Leading so far: ${CITIES.find((c) => c.slug === leading[0])?.name}.`}
           </p>
 
+          <div className="chips filters">
+            <a className={`chip ${!region ? "on" : ""}`} href={filterHref()}>Anywhere</a>
+            {REGIONS.map((r) => (
+              <a key={r} className={`chip ${region === r ? "on" : ""}`} href={filterHref(r)}>{r}</a>
+            ))}
+          </div>
+
           {ranked.map((r, i) => {
             const count = tally.get(r.city.slug) ?? 0;
             const voteAction_ = voteAction.bind(null, trip.code, r.city.slug);
@@ -240,6 +257,10 @@ export default async function TripPage({
               </div>
             );
           })}
+          {ranked.length === 0 && <p className="muted">No destinations in this region yet.</p>}
+          {hasMore && !more && (
+            <p><a href={filterHref(region, true)}>Show more destinations</a></p>
+          )}
         </>
       )}
     </>

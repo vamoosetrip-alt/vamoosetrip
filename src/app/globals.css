@@ -98,3 +98,10 @@ button.ghost.on { border-color: var(--accent); color: var(--accent); }
 .btn { display: inline-block; text-decoration: none; }
 .btn.ghost-link { background: transparent; color: var(--ink); border: 1px solid var(--line); }
 .decided h2 { letter-spacing: -0.02em; }
+.picker { position: relative; display: grid; gap: 4px; }
+.picker-list { position: absolute; top: 100%; left: 0; right: 0; z-index: 5; margin: 4px 0 0; padding: 4px; list-style: none; background: var(--card); border: 1px solid var(--line); border-radius: 10px; box-shadow: 0 6px 20px rgba(0,0,0,.12); }
+.picker-list button { width: 100%; text-align: left; background: transparent; color: var(--ink); font-weight: 500; padding: 8px 10px; border-radius: 8px; }
+.picker-list button:hover { background: var(--bg); }
+.filters { margin: 0 0 14px; }
+a.chip { text-decoration: none; color: var(--ink); }
+a.chip.on { border-color: var(--accent); color: var(--accent); }

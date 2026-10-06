@@ -4,6 +4,7 @@ import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
 import { CITY_BY_SLUG, VIBES } from "@/lib/cities";
+import { resolvePlace } from "@/lib/places";
 import {
   addMember,
   createTrip,
@@ -57,8 +58,8 @@ export async function joinTripAction(code: string, fd: FormData) {
     .map(String)
     .filter((k) => VIBES.some((v) => v.key === k));
 
-  if (!name || !CITY_BY_SLUG[homeSlug] || budget === null) {
-    redirect(`/t/${trip.code}?error=Please+fill+in+your+name,+home+airport+and+budget`);
+  if (!name || !resolvePlace(homeSlug) || budget === null) {
+    redirect(`/t/${trip.code}?error=Please+fill+in+your+name,+pick+your+home+airport+from+the+list+and+enter+a+budget`);
   }
 
   const member = await addMember({ tripId: trip.id, name, homeSlug, budget, vibes });
