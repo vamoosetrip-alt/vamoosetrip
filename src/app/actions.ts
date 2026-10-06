@@ -9,6 +9,7 @@ import {
   createTrip,
   getMemberByToken,
   getTrip,
+  setDecision,
   toggleVote,
 } from "@/lib/db";
 
@@ -46,6 +47,8 @@ export async function joinTripAction(code: string, fd: FormData) {
   const trip = await getTrip(code);
   if (!trip) redirect("/?error=Trip+not+found");
 
+  if (trip.decided_city) redirect(`/t/${trip.code}`);
+
   const name = text(fd, "name", 40);
   const homeSlug = text(fd, "home", 40);
   const budget = int(fd, "budget", 50, 20000);
@@ -71,7 +74,30 @@ export async function voteAction(code: string, citySlug: string) {
   if (!token) return;
   const member = await getMemberByToken(trip.id, token);
   if (!member) return;
+  if (trip.decided_city) return;
   const ok = await toggleVote({ tripId: trip.id, memberId: member.id, citySlug });
   revalidatePath(`/t/${trip.code}`);
   if (!ok) redirect(`/t/${trip.code}?error=You+can+approve+up+to+3+destinations`);
+}
+
+async function isOrganizer(code: string, organizerToken: string): Promise<boolean> {
+  return (await cookies()).get(`o_${code}`)?.value === organizerToken;
+}
+
+/** Organizer locks in the group's destination. */
+export async function decideAction(code: string, citySlug: string) {
+  const trip = await getTrip(code);
+  if (!trip || !CITY_BY_SLUG[citySlug]) return;
+  if (!(await isOrganizer(trip.code, trip.organizer_token))) return;
+  await setDecision(trip.id, citySlug);
+  revalidatePath(`/t/${trip.code}`);
+}
+
+/** Organizer reopens voting. */
+export async function reopenAction(code: string) {
+  const trip = await getTrip(code);
+  if (!trip) return;
+  if (!(await isOrganizer(trip.code, trip.organizer_token))) return;
+  await setDecision(trip.id, null);
+  revalidatePath(`/t/${trip.code}`);
 }

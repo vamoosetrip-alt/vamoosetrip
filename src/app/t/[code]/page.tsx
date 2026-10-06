@@ -9,7 +9,8 @@ import {
   listVotes,
 } from "@/lib/db";
 import { rankDestinations, type MemberPrefs } from "@/lib/matching";
-import { joinTripAction, voteAction } from "@/app/actions";
+import { decideAction, joinTripAction, reopenAction, voteAction } from "@/app/actions";
+import { flightsLink, hotelsLink, toursLink } from "@/lib/links";
 import CopyLink from "./CopyLink";
 
 export const dynamic = "force-dynamic";
@@ -54,6 +55,12 @@ export default async function TripPage({
   const ranked = allRanked.filter((r, i) => i < 6 || (tally.get(r.city.slug) ?? 0) > 0);
   const leading = [...tally.entries()].sort((a, b) => b[1] - a[1])[0];
   const joinAction = joinTripAction.bind(null, trip.code);
+  const isOrganizer = (await cookies()).get(`o_${trip.code}`)?.value === trip.organizer_token;
+  const decided = trip.decided_city ? allRanked.find((r) => r.city.slug === trip.decided_city) : undefined;
+  const myIndex = me ? members.findIndex((m) => m.id === me.id) : -1;
+  const myResult = decided && myIndex >= 0 ? decided.members[myIndex] : undefined;
+  const myHome = me ? CITIES.find((c) => c.slug === me.home_slug) : undefined;
+  const approvals = decided ? (tally.get(decided.city.slug) ?? 0) : 0;
 
   return (
     <>
@@ -71,7 +78,69 @@ export default async function TripPage({
         <CopyLink />
       </div>
 
-      {!me && (
+
+      {decided && (
+        <>
+          <div className="card winner decided">
+            <div className="muted">Your group is going to</div>
+            <h2 style={{ margin: "4px 0 6px", fontSize: "1.8rem" }}>
+              {decided.city.name}, {decided.city.country}
+            </h2>
+            <div>
+              {MONTHS[trip.month - 1]} · {trip.nights} nights · {members.length}{" "}
+              {members.length === 1 ? "traveler" : "travelers"}
+            </div>
+            <div className="muted" style={{ marginTop: 8 }}>
+              About {eur(decided.avgCost)} each
+              {decided.minCost !== decided.maxCost &&
+                ` (${eur(decided.minCost)} to ${eur(decided.maxCost)})`}
+              {approvals > 0 && ` · ${approvals} of ${members.length} approved it`}
+            </div>
+            <div className="who">
+              {members.map((m) => (
+                <span key={m.id} className="tag">{m.name}</span>
+              ))}
+            </div>
+          </div>
+
+          {me && myResult && myHome && (
+            <>
+              <h2>Your next steps</h2>
+              <div className="card stack">
+                <div>
+                  <strong>Your estimate: about {eur(myResult.cost)}</strong>
+                  <div className="muted">
+                    Flight from {myHome.name} plus {trip.nights} nights. Check live prices before booking.
+                  </div>
+                </div>
+                <div className="actions">
+                  <a className="btn" href={flightsLink(myHome.name, decided.city, trip.month)} target="_blank" rel="noopener noreferrer sponsored">
+                    Find flights
+                  </a>
+                  <a className="btn ghost-link" href={hotelsLink(decided.city)} target="_blank" rel="noopener noreferrer sponsored">
+                    Find hotels
+                  </a>
+                  <a className="btn ghost-link" href={toursLink(decided.city)} target="_blank" rel="noopener noreferrer sponsored">
+                    Tours and activities
+                  </a>
+                </div>
+              </div>
+            </>
+          )}
+
+          {!me && (
+            <p className="muted">Voting is closed for this trip. Ask the organizer to reopen it if you want to join.</p>
+          )}
+
+          {isOrganizer && (
+            <form action={reopenAction.bind(null, trip.code)}>
+              <button type="submit" className="ghost">Reopen voting</button>
+            </form>
+          )}
+        </>
+      )}
+
+      {!me && !decided && (
         <form action={joinAction} className="card stack">
           <strong>Join this trip. Your answers stay private; only the group result is shown.</strong>
           <label>
@@ -109,7 +178,7 @@ export default async function TripPage({
         </form>
       )}
 
-      {me && (
+      {me && !decided && (
         <>
           <h2>Who is in</h2>
           <div className="who">
@@ -156,11 +225,18 @@ export default async function TripPage({
                     )).slice(0, 1)}
                   </div>
                 </div>
-                <form action={voteAction_}>
-                  <button type="submit" className={`ghost ${mine ? "on" : ""}`}>
-                    {mine ? "Approved" : "Approve"} · {count}
-                  </button>
-                </form>
+                <div className="vote-col">
+                  <form action={voteAction_}>
+                    <button type="submit" className={`ghost ${mine ? "on" : ""}`}>
+                      {mine ? "Approved" : "Approve"} · {count}
+                    </button>
+                  </form>
+                  {isOrganizer && (
+                    <form action={decideAction.bind(null, trip.code, r.city.slug)}>
+                      <button type="submit">Choose this</button>
+                    </form>
+                  )}
+                </div>
               </div>
             );
           })}

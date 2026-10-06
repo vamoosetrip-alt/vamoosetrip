@@ -5,6 +5,7 @@ CREATE TABLE IF NOT EXISTS trips (
   month int NOT NULL CHECK (month BETWEEN 1 AND 12),
   nights int NOT NULL CHECK (nights BETWEEN 1 AND 21),
   organizer_token text NOT NULL,
+  decided_city text,
   created_at timestamptz NOT NULL DEFAULT now()
 );
 
@@ -28,3 +29,6 @@ CREATE TABLE IF NOT EXISTS votes (
   PRIMARY KEY (member_id, city_slug)
 );
 CREATE INDEX IF NOT EXISTS votes_trip_idx ON votes(trip_id);
+
+-- Added after launch; safe to run on an existing database.
+ALTER TABLE trips ADD COLUMN IF NOT EXISTS decided_city text;

@@ -15,6 +15,7 @@ export type TripRow = {
   month: number;
   nights: number;
   organizer_token: string;
+  decided_city: string | null;
 };
 
 export type MemberRow = {
@@ -58,7 +59,7 @@ export async function createTrip(input: {
 export async function getTrip(code: string): Promise<TripRow | null> {
   const sql = client();
   const rows = await sql`
-    SELECT id, code, name, month, nights, organizer_token
+    SELECT id, code, name, month, nights, organizer_token, decided_city
     FROM trips WHERE code = ${code.toUpperCase()}`;
   return (rows[0] as TripRow) ?? null;
 }
@@ -131,4 +132,10 @@ export async function toggleVote(input: {
     VALUES (${input.memberId}, ${input.tripId}, ${input.citySlug})
     ON CONFLICT DO NOTHING`;
   return true;
+}
+
+/** Lock in (or, with null, reopen) the group's destination. */
+export async function setDecision(tripId: string, citySlug: string | null): Promise<void> {
+  const sql = client();
+  await sql`UPDATE trips SET decided_city = ${citySlug} WHERE id = ${tripId}`;
 }

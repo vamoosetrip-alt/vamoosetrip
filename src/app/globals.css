@@ -93,3 +93,8 @@ button.ghost.on { border-color: var(--accent); color: var(--accent); }
 .invite code { background: var(--bg); border: 1px solid var(--line); padding: 6px 10px; border-radius: 8px; font-size: 14px; }
 .winner { border-color: var(--accent); }
 .error { color: var(--warn); font-weight: 600; }
+.vote-col { display: grid; gap: 8px; }
+.actions { display: flex; flex-wrap: wrap; gap: 8px; }
+.btn { display: inline-block; text-decoration: none; }
+.btn.ghost-link { background: transparent; color: var(--ink); border: 1px solid var(--line); }
+.decided h2 { letter-spacing: -0.02em; }
