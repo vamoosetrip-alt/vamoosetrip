@@ -10,6 +10,7 @@ import {
   createTrip,
   getMemberByToken,
   getTrip,
+  logEvent,
   setDecision,
   toggleVote,
 } from "@/lib/db";
@@ -41,6 +42,7 @@ export async function createTripAction(fd: FormData) {
   }
   const { code, organizerToken } = await createTrip({ name, month, nights });
   (await cookies()).set(`o_${code}`, organizerToken, cookieOpts);
+  await logEvent("trip_created", code);
   redirect(`/t/${code}`);
 }
 
@@ -64,6 +66,7 @@ export async function joinTripAction(code: string, fd: FormData) {
 
   const member = await addMember({ tripId: trip.id, name, homeSlug, budget, vibes });
   (await cookies()).set(`m_${trip.code}`, member.token, cookieOpts);
+  await logEvent("member_joined", trip.code);
   revalidatePath(`/t/${trip.code}`);
   redirect(`/t/${trip.code}`);
 }
@@ -91,6 +94,7 @@ export async function decideAction(code: string, citySlug: string) {
   if (!trip || !CITY_BY_SLUG[citySlug]) return;
   if (!(await isOrganizer(trip.code, trip.organizer_token))) return;
   await setDecision(trip.id, citySlug);
+  await logEvent("decided", trip.code);
   revalidatePath(`/t/${trip.code}`);
 }
 
@@ -100,5 +104,6 @@ export async function reopenAction(code: string) {
   if (!trip) return;
   if (!(await isOrganizer(trip.code, trip.organizer_token))) return;
   await setDecision(trip.id, null);
+  await logEvent("reopened", trip.code);
   revalidatePath(`/t/${trip.code}`);
 }

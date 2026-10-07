@@ -11,7 +11,6 @@ import {
 } from "@/lib/db";
 import { rankDestinations, type MemberPrefs } from "@/lib/matching";
 import { decideAction, joinTripAction, reopenAction, voteAction } from "@/app/actions";
-import { flightsLink, hotelsLink, toursLink } from "@/lib/links";
 import CopyLink from "./CopyLink";
 import HomePicker from "./HomePicker";
 
@@ -129,13 +128,13 @@ export default async function TripPage({
                   </div>
                 </div>
                 <div className="actions">
-                  <a className="btn" href={flightsLink(myHome, decided.city, trip.month, trip.nights)} target="_blank" rel="noopener noreferrer sponsored">
+                  <a className="btn" href={`/go/${trip.code}/flights`} target="_blank" rel="noopener noreferrer sponsored">
                     Find flights
                   </a>
-                  <a className="btn ghost-link" href={hotelsLink(decided.city)} target="_blank" rel="noopener noreferrer sponsored">
+                  <a className="btn ghost-link" href={`/go/${trip.code}/hotels`} target="_blank" rel="noopener noreferrer sponsored">
                     Find hotels
                   </a>
-                  <a className="btn ghost-link" href={toursLink(decided.city)} target="_blank" rel="noopener noreferrer sponsored">
+                  <a className="btn ghost-link" href={`/go/${trip.code}/tours`} target="_blank" rel="noopener noreferrer sponsored">
                     Tours and activities
                   </a>
                 </div>

@@ -139,3 +139,50 @@ export async function setDecision(tripId: string, citySlug: string | null): Prom
   const sql = client();
   await sql`UPDATE trips SET decided_city = ${citySlug} WHERE id = ${tripId}`;
 }
+
+/**
+ * Anonymous usage counting: an event type and the trip code, nothing about people.
+ * Best effort. A failure here must never break the app.
+ */
+export async function logEvent(type: string, tripCode?: string): Promise<void> {
+  try {
+    const sql = client();
+    await sql`INSERT INTO events (trip_code, type) VALUES (${tripCode ?? null}, ${type})`;
+  } catch {
+    // ignore
+  }
+}
+
+export type TripStat = {
+  code: string;
+  name: string;
+  created_at: string;
+  members: number;
+  voters: number;
+  decided_city: string | null;
+  clicks: number;
+};
+
+export async function getStats() {
+  const sql = client();
+  const totals = await sql`
+    SELECT
+      (SELECT count(*)::int FROM trips) AS trips,
+      (SELECT count(*)::int FROM members) AS members,
+      (SELECT count(*)::int FROM trips t WHERE (SELECT count(*) FROM members m WHERE m.trip_id = t.id) >= 2) AS trips_two_plus,
+      (SELECT count(DISTINCT trip_id)::int FROM votes) AS trips_with_votes,
+      (SELECT count(*)::int FROM trips WHERE decided_city IS NOT NULL) AS trips_decided`;
+  const clicks = await sql`
+    SELECT type, count(*)::int AS n FROM events WHERE type LIKE 'click_%' GROUP BY type ORDER BY type`;
+  const trips = await sql`
+    SELECT t.code, t.name, t.created_at, t.decided_city,
+      (SELECT count(*)::int FROM members m WHERE m.trip_id = t.id) AS members,
+      (SELECT count(DISTINCT v.member_id)::int FROM votes v WHERE v.trip_id = t.id) AS voters,
+      (SELECT count(*)::int FROM events e WHERE e.trip_code = t.code AND e.type LIKE 'click_%') AS clicks
+    FROM trips t ORDER BY t.created_at DESC LIMIT 30`;
+  return {
+    totals: totals[0] as Record<string, number>,
+    clicks: clicks as { type: string; n: number }[],
+    trips: trips as TripStat[],
+  };
+}
